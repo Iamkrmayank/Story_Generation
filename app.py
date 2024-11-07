@@ -30,44 +30,32 @@ with tab1:
         # Get the last row for placeholders
         placeholder_row = df_master.iloc[-1]
 
-        # Prepare data for JavaScript to download each HTML page automatically
-        html_data = []
+        # Loop through each row except the last one (which contains placeholders)
         for row_index in range(len(df_master) - 1):
+            # Get the current row data (actual values)
             row_data = df_master.iloc[row_index]
+
+            # Make a copy of the HTML content for each row
             html_content_modified = html_content_master
 
+            # Perform replacements for each column
             for col_index in range(len(df_master.columns)):
-                actual_value = str(row_data[col_index])  # Actual value from the current row
+                actual_value = str(row_data[col_index])      # Actual value from the current row
                 placeholder = str(placeholder_row[col_index])  # Placeholder from the last row
-                html_content_modified = html_content_modified.replace(placeholder, actual_value)
+                html_content_modified = html_content_modified.replace(actual_value, placeholder)
 
+            # Generate the filename using the first column of the current row
             file_name = f"{str(row_data[0])}_template.html"
-            html_data.append({"content": html_content_modified, "filename": file_name})
 
-        # JavaScript to trigger download for each HTML file
-        download_js = """
-        <script>
-        const htmlData = JSON.parse(document.getElementById("file_data").textContent);
-        htmlData.forEach(file => {
-            const blob = new Blob([file.content], { type: 'text/html' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = file.filename;
-            link.click();
-        });
-        </script>
-        """
+            # Create a download button for each modified HTML
+            st.download_button(label=f"Download Modified HTML for {str(row_data[0])}", 
+                               data=html_content_modified, 
+                               file_name=file_name, 
+                               mime='text/html')
 
-        # Inject the data and the JavaScript into the app
-        components.html(f"""
-            <div id="file_data" style="display: none;">{json.dumps(html_data)}</div>
-            {download_js}
-        """, height=0)
-
-        st.success("HTML content modified for all rows and downloading should start automatically.")
+        st.success("HTML content modified for all rows. Click the buttons above to download the modified files.")
     else:
         st.info("Please upload both an Excel file and an HTML file for the Master Template Generator.")
-
 # Tab 2: Story Generator
 with tab2:
     st.header('Story Generator')
