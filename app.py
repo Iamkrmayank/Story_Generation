@@ -57,6 +57,7 @@ with tab1:
     else:
         st.info("Please upload both an Excel file and an HTML file for the Master Template Generator.")
 # Tab 2: Story Generator
+# Tab 2: Story Generator
 with tab2:
     st.header('Story Generator')
     
@@ -73,40 +74,26 @@ with tab2:
         html_content_template_story = uploaded_html_story.read().decode('utf-8')
 
         # First row (index 0) contains placeholders like {{storytitle}}, {{coverinfo1}}, etc.
-        placeholders_story = df_story.iloc[0, :].tolist()
+        placeholders_story = df_story.iloc[0].tolist()
 
-        # Prepare data for JavaScript to download each HTML page automatically
-        story_data = []
+        # Loop through each row from index 1 onward to perform replacements
         for row_index in range(1, len(df_story)):
-            actual_values_story = df_story.iloc[row_index, :].tolist()
+            actual_values_story = df_story.iloc[row_index].tolist()
+
+            # Copy the original HTML template content
             html_content_story = html_content_template_story
 
+            # Perform batch replacement for each placeholder in the row
             for placeholder, actual_value in zip(placeholders_story, actual_values_story):
-                html_content_story = html_content_story.replace(placeholder, str(actual_value))
+                html_content_story = html_content_story.replace(str(placeholder), str(actual_value))
 
+            # Use the first column value of each row as the filename
             output_filename_story = f"{actual_values_story[0]}.html"
-            story_data.append({"content": html_content_story, "filename": output_filename_story})
 
-        # JavaScript to trigger download for each HTML file
-        story_js = """
-        <script>
-        const storyFiles = JSON.parse(document.getElementById("story_file_data").textContent);
-        storyFiles.forEach(file => {
-            const blob = new Blob([file.content], { type: 'text/html' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = file.filename;
-            link.click();
-        });
-        </script>
-        """
-
-        # Inject the data and the JavaScript into the app
-        components.html(f"""
-            <div id="story_file_data" style="display: none;">{json.dumps(story_data)}</div>
-            {story_js}
-        """, height=0)
-
-        st.success("HTML content modified for all rows and downloading should start automatically.")
-    else:
-        st.info("Please upload both an Excel file and an HTML file for the Story Generator.")
+            # Create a download button for each modified HTML
+            st.download_button(
+                label=f"Download Modified HTML for {actual_values_story[0]}",
+                data=html_content_story,
+                file_name=output_filename_story,
+                mime='text/html'
+            )
