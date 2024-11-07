@@ -1,9 +1,12 @@
 import pandas as pd
 import streamlit as st
+import zipfile
+import io
+import json  # Import json module for JSON encoding
 import streamlit.components.v1 as components
 
 # Streamlit app title
-st.title('Generate Your Webstories 😀')
+st.title('Generate your webstories:😀')
 
 # Create two tabs: Master Template Generator and Story Generator
 tab1, tab2 = st.tabs(["Master Template Generator", "Story Generator"])
@@ -25,63 +28,47 @@ with tab1:
         html_content_master = uploaded_html_master.read().decode('utf-8')
 
         # Get the last row for placeholders
-        placeholder_row = df_master.iloc[-1].tolist()
+        placeholder_row = df_master.iloc[-1]
 
-        # Prepare a list of generated HTML file names and content for download
-        html_files = []
-
-        # Loop through each row except the last one (which contains placeholders)
+        # Prepare data for JavaScript to download each HTML page automatically
+        html_data = []
         for row_index in range(len(df_master) - 1):
-            # Get the current row data (actual values)
-            row_data = df_master.iloc[row_index].tolist()
-
-            # Make a copy of the HTML content for each row and replace placeholders
+            row_data = df_master.iloc[row_index]
             html_content_modified = html_content_master
-            for placeholder, actual_value in zip(placeholder_row, row_data):
-                html_content_modified = html_content_modified.replace(str(placeholder), str(actual_value))
 
-            # Generate the filename using the first column of the current row
+            for col_index in range(len(df_master.columns)):
+                actual_value = str(row_data[col_index])  # Actual value from the current row
+                placeholder = str(placeholder_row[col_index])  # Placeholder from the last row
+                html_content_modified = html_content_modified.replace(placeholder, actual_value)
+
             file_name = f"{str(row_data[0])}_template.html"
-            html_files.append((file_name, html_content_modified))
+            html_data.append({"content": html_content_modified, "filename": file_name})
 
-            # Create a download button as fallback
-            st.download_button(
-                label=f"Download Modified HTML for {str(row_data[0])}", 
-                data=html_content_modified, 
-                file_name=file_name, 
-                mime='text/html'
-            )
-
-        # Use JavaScript to attempt automatic downloads
+        # JavaScript to trigger download for each HTML file
         download_js = """
         <script>
-        function downloadFile(filename, content) {
-            const blob = new Blob([content], { type: 'text/html' });
+        const htmlData = JSON.parse(document.getElementById("file_data").textContent);
+        htmlData.forEach(file => {
+            const blob = new Blob([file.content], { type: 'text/html' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
+            link.download = file.filename;
             link.click();
-            document.body.removeChild(link);
-        }
-        
-        function downloadAllFiles() {
-            const files = JSON.parse(document.getElementById('file_data').textContent);
-            files.forEach(file => downloadFile(file.name, file.content));
-        }
-
-        window.onload = downloadAllFiles;
+        });
         </script>
         """
 
-        # Render the HTML and JavaScript to attempt automatic download
-        html_data = [{'name': f[0], 'content': f[1]} for f in html_files]
+        # Inject the data and the JavaScript into the app
         components.html(f"""
-            <div id="file_data" style="display: none;">{pd.json.dumps(html_data)}</div>
+            <div id="file_data" style="display: none;">{json.dumps(html_data)}</div>
             {download_js}
         """, height=0)
 
-# Tab 2: Story Generator (Similar to Tab 1; add download attempt code here as well if needed)
+        st.success("HTML content modified for all rows and downloading should start automatically.")
+    else:
+        st.info("Please upload both an Excel file and an HTML file for the Master Template Generator.")
+
+# Tab 2: Story Generator
 with tab2:
     st.header('Story Generator')
     
@@ -98,59 +85,40 @@ with tab2:
         html_content_template_story = uploaded_html_story.read().decode('utf-8')
 
         # First row (index 0) contains placeholders like {{storytitle}}, {{coverinfo1}}, etc.
-        placeholders_story = df_story.iloc[0].tolist()
+        placeholders_story = df_story.iloc[0, :].tolist()
 
-        # Prepare a list of generated HTML files for download
-        story_files = []
-
-        # Loop through each row from index 1 onward to perform replacements
+        # Prepare data for JavaScript to download each HTML page automatically
+        story_data = []
         for row_index in range(1, len(df_story)):
-            actual_values_story = df_story.iloc[row_index].tolist()
-
-            # Copy the original HTML template content
+            actual_values_story = df_story.iloc[row_index, :].tolist()
             html_content_story = html_content_template_story
 
-            # Perform batch replacement for each placeholder in the row
             for placeholder, actual_value in zip(placeholders_story, actual_values_story):
-                html_content_story = html_content_story.replace(str(placeholder), str(actual_value))
+                html_content_story = html_content_story.replace(placeholder, str(actual_value))
 
-            # Use the first column value of each row as the filename
             output_filename_story = f"{actual_values_story[0]}.html"
-            story_files.append((output_filename_story, html_content_story))
+            story_data.append({"content": html_content_story, "filename": output_filename_story})
 
-            # Create a download button as fallback
-            st.download_button(
-                label=f"Download Modified HTML for {actual_values_story[0]}",
-                data=html_content_story,
-                file_name=output_filename_story,
-                mime='text/html'
-            )
-
-        # Render the HTML and JavaScript to attempt automatic download for story files
+        # JavaScript to trigger download for each HTML file
         story_js = """
         <script>
-        function downloadFile(filename, content) {
-            const blob = new Blob([content], { type: 'text/html' });
+        const storyFiles = JSON.parse(document.getElementById("story_file_data").textContent);
+        storyFiles.forEach(file => {
+            const blob = new Blob([file.content], { type: 'text/html' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            document.body.appendChild(link);
+            link.download = file.filename;
             link.click();
-            document.body.removeChild(link);
-        }
-        
-        function downloadAllFiles() {
-            const files = JSON.parse(document.getElementById('story_file_data').textContent);
-            files.forEach(file => downloadFile(file.name, file.content));
-        }
-
-        window.onload = downloadAllFiles;
+        });
         </script>
         """
 
-        # Render the JavaScript for story file downloads
-        story_data = [{'name': f[0], 'content': f[1]} for f in story_files]
+        # Inject the data and the JavaScript into the app
         components.html(f"""
-            <div id="story_file_data" style="display: none;">{pd.json.dumps(story_data)}</div>
+            <div id="story_file_data" style="display: none;">{json.dumps(story_data)}</div>
             {story_js}
         """, height=0)
+
+        st.success("HTML content modified for all rows and downloading should start automatically.")
+    else:
+        st.info("Please upload both an Excel file and an HTML file for the Story Generator.")
