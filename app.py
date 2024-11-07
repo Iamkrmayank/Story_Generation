@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Streamlit app title
 st.title('Generate Your Webstories 😀')
@@ -26,6 +27,9 @@ with tab1:
         # Get the last row for placeholders
         placeholder_row = df_master.iloc[-1].tolist()
 
+        # Prepare a list of generated HTML file names and content for download
+        html_files = []
+
         # Loop through each row except the last one (which contains placeholders)
         for row_index in range(len(df_master) - 1):
             # Get the current row data (actual values)
@@ -38,8 +42,9 @@ with tab1:
 
             # Generate the filename using the first column of the current row
             file_name = f"{str(row_data[0])}_template.html"
+            html_files.append((file_name, html_content_modified))
 
-            # Create a download button for each modified HTML
+            # Create a download button as fallback
             st.download_button(
                 label=f"Download Modified HTML for {str(row_data[0])}", 
                 data=html_content_modified, 
@@ -47,7 +52,36 @@ with tab1:
                 mime='text/html'
             )
 
-# Tab 2: Story Generator
+        # Use JavaScript to attempt automatic downloads
+        download_js = """
+        <script>
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function downloadAllFiles() {
+            const files = JSON.parse(document.getElementById('file_data').textContent);
+            files.forEach(file => downloadFile(file.name, file.content));
+        }
+
+        window.onload = downloadAllFiles;
+        </script>
+        """
+
+        # Render the HTML and JavaScript to attempt automatic download
+        html_data = [{'name': f[0], 'content': f[1]} for f in html_files]
+        components.html(f"""
+            <div id="file_data" style="display: none;">{pd.json.dumps(html_data)}</div>
+            {download_js}
+        """, height=0)
+
+# Tab 2: Story Generator (Similar to Tab 1; add download attempt code here as well if needed)
 with tab2:
     st.header('Story Generator')
     
@@ -66,6 +100,9 @@ with tab2:
         # First row (index 0) contains placeholders like {{storytitle}}, {{coverinfo1}}, etc.
         placeholders_story = df_story.iloc[0].tolist()
 
+        # Prepare a list of generated HTML files for download
+        story_files = []
+
         # Loop through each row from index 1 onward to perform replacements
         for row_index in range(1, len(df_story)):
             actual_values_story = df_story.iloc[row_index].tolist()
@@ -79,11 +116,41 @@ with tab2:
 
             # Use the first column value of each row as the filename
             output_filename_story = f"{actual_values_story[0]}.html"
+            story_files.append((output_filename_story, html_content_story))
 
-            # Create a download button for each modified HTML
+            # Create a download button as fallback
             st.download_button(
                 label=f"Download Modified HTML for {actual_values_story[0]}",
                 data=html_content_story,
                 file_name=output_filename_story,
                 mime='text/html'
             )
+
+        # Render the HTML and JavaScript to attempt automatic download for story files
+        story_js = """
+        <script>
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/html' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function downloadAllFiles() {
+            const files = JSON.parse(document.getElementById('story_file_data').textContent);
+            files.forEach(file => downloadFile(file.name, file.content));
+        }
+
+        window.onload = downloadAllFiles;
+        </script>
+        """
+
+        # Render the JavaScript for story file downloads
+        story_data = [{'name': f[0], 'content': f[1]} for f in story_files]
+        components.html(f"""
+            <div id="story_file_data" style="display: none;">{pd.json.dumps(story_data)}</div>
+            {story_js}
+        """, height=0)
